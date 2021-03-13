@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import json
-from common.travis_checker import travis
 from common.colors import opParams_error as error
 from common.colors import opParams_warning as warning
 try:
