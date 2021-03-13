@@ -162,8 +162,8 @@ class opParams:
         fp.children.append(k)
         d = fp.depends_on
 
-    if travis:
-      return
+    
+      
 
     if os.path.isfile(self._params_file):
       if self._read():
