@@ -14,6 +14,7 @@ void ui_draw_df_button(UIState *s) {
   nvgTextAlign(s->vg, NVG_ALIGN_CENTER);
 
   nvgText(s->vg, df_btn_x + df_btn_w / 2, df_btn_y + df_btn_h / 2,
+  s->scene.dpDynamicFollow == 4? "1.8s" :
   s->scene.dpDynamicFollow == 3? "1.5s" :
   s->scene.dpDynamicFollow == 2? "1.2s" :
   s->scene.dpDynamicFollow == 1? "0.9s" :
