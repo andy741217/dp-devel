@@ -39,16 +39,16 @@ class CarInterface(CarInterfaceBase):
     tire_stiffness_factor = 0.385
 
     #Long tuning Params -  make individual params for cars, baseline Hyundai genesis
-    ret.longitudinalTuning.kpBP = [0., 5., 20.]
-    ret.longitudinalTuning.kpV = [1.8, 1.2, 0.9]
-    ret.longitudinalTuning.kiBP = [0., 5., 12., 20., 27.]
-    ret.longitudinalTuning.kiV = [.32, .21, .18, .163, .09]
+    ret.longitudinalTuning.kpBP = [0., .3, 10., 35.]
+    ret.longitudinalTuning.kpV = [1.8, .8, .3, .3]
+    ret.longitudinalTuning.kiBP = [0., .3, 15., 35.]
+    ret.longitudinalTuning.kiV = [0.15, .055, .05, .045]
     ret.longitudinalTuning.deadzoneBP = [0., .5]
     ret.longitudinalTuning.deadzoneV = [0.00, 0.00]
     ret.gasMaxBP = [0., 1., 1.1, 15., 40.]
-    ret.gasMaxV = [1.5, 1.5, 1.5, 1.28, 1.1]
+    ret.gasMaxV = [2., 2., 2., 1.68, 1.3]
     ret.brakeMaxBP = [0., 5., 5.1]
-    ret.brakeMaxV = [2.0, 2.0, 2.0]
+    ret.brakeMaxV = [3.5, 3.5, 3.5]
     
     ret.maxSteeringAngleDeg = 1000.
     
