@@ -15,6 +15,7 @@ from common.dp_common import get_last_modified, param_get_if_updated
 LOG_MPC = os.environ.get('LOG_MPC', False)
 
 # dp
+PROFILE_D = 4
 PROFILE_C = 3
 PROFILE_B = 2
 PROFILE_A = 1
@@ -25,6 +26,7 @@ PROFILE_DIST = {
   1: 0.9,
   2: 1.2,
   3: 1.5,
+  4: 1.8,
 }
 
 class LongitudinalMpc():
