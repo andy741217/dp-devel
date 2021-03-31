@@ -48,7 +48,7 @@ class CarInterface(CarInterfaceBase):
     ret.gasMaxBP = [0.]
     ret.gasMaxV = [0.5]
     ret.brakeMaxBP = [0.]
-    ret.brakeMaxV = [1.5]
+    ret.brakeMaxV = [3.5]
     
     ret.maxSteeringAngleDeg = 1000.
     
