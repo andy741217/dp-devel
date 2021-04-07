@@ -51,7 +51,13 @@ class CarInterface(CarInterfaceBase):
     ret.brakeMaxV = [3.5, 3.5, 3.5]  # safety limits to stop unintended deceleration
     ret.longitudinalTuning.kfBP = [0., 5., 10., 20., 30.]
     ret.longitudinalTuning.kfV = [1., 1., 1., .75, .5]
-
+    
+    ret.lateralTuning.pid.kpBP = [0., 10., 30.]
+    ret.lateralTuning.pid.kpV = [0.01, 0.02, 0.03]
+    ret.lateralTuning.pid.kiBP = [0., 10., 30.]
+    ret.lateralTuning.pid.kiV = [0.001, 0.0015, 0.002]
+    ret.lateralTuning.pid.kfBP = [0., 10., 30.]
+    ret.lateralTuning.pid.kfV = [0.000015, 0.00002, 0.000025]
     ret.maxSteeringAngleDeg = 1000.
     
     eps_modified = False
