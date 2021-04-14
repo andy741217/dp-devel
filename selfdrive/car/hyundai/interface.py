@@ -39,20 +39,17 @@ class CarInterface(CarInterfaceBase):
     tire_stiffness_factor = 0.7
 
     #Long tuning Params -  make individual params for cars, baseline Hyundai genesis
-    ret.longitudinalTuning.kpBP = [0., 10. * CV.KPH_TO_MS, 20. * CV.KPH_TO_MS, 40. * CV.KPH_TO_MS, 100. * CV.KPH_TO_MS]
-    ret.longitudinalTuning.kpV = [0.97, 0.82, 0.63, 0.58, 0.43]
-    ret.longitudinalTuning.kiBP = [0.]
-    ret.longitudinalTuning.kiV = [0.015]
-    ret.longitudinalTuning.kf = 0.55
-    ret.longitudinalTuning.deadzoneBP = [0., 100.*CV.KPH_TO_MS]
-    ret.longitudinalTuning.deadzoneV = [0., 0.015]
-    ret.gasMaxBP = [0., 10.*CV.KPH_TO_MS, 20.*CV.KPH_TO_MS, 70.*CV.KPH_TO_MS, 130.*CV.KPH_TO_MS ]
-    ret.gasMaxV = [0.4, 0.28, 0.19, 0.12, 0.08]
-    ret.brakeMaxBP = [0.]
-    ret.brakeMaxV = [1.3]
-    ret.stoppingBrakeRate = 0.2  # brake_travel/s while trying to stop
-    ret.startingBrakeRate = 0.8  # brake_travel/s while releasing on restart
-    ret.startAccel = 1.7
+    ret.longitudinalTuning.kpBP = [0., 10. * CV.KPH_TO_MS, 40. * CV.KPH_TO_MS, 100. * CV.KPH_TO_MS]
+      ret.longitudinalTuning.kpV = [1.3, 1.2, 1.0, 0.45]
+      ret.longitudinalTuning.kiBP = [0.]
+      ret.longitudinalTuning.kiV = [0.]
+      ret.longitudinalTuning.deadzoneBP = [0., 40]
+      ret.longitudinalTuning.deadzoneV = [0., 0.02]
+
+      ret.gasMaxBP = [0.]
+      ret.gasMaxV = [0.5]
+      ret.brakeMaxBP = [0., 20.]
+      ret.brakeMaxV = [1., 0.8]
     
     
     ret.lateralTuning.pid.kpBP = [0., 10., 30.]
