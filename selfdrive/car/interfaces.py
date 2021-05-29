@@ -29,6 +29,8 @@ class CarInterfaceBase():
     self.frame = 0
     self.low_speed_alert = False
 
+    self.dragonconf = None
+
     if CarState is not None:
       self.CS = CarState(CP)
       self.cp = self.CS.get_can_parser(CP)
@@ -86,7 +88,7 @@ class CarInterfaceBase():
     return ret
 
   # returns a car.CarState, pass in car.CarControl
-  def update(self, c, can_strings):
+  def update(self, c, can_strings, dragonconf):
     raise NotImplementedError
 
   # return sendcan, pass in a car.CarControl

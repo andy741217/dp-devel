@@ -14,7 +14,7 @@ from common.filter_simple import FirstOrderFilter
 from common.numpy_fast import clip, interp
 from common.params import Params, ParamKeyType
 from common.realtime import DT_TRML, sec_since_boot
-from common.dict_helpers import strip_deprecated_keys
+# from common.dict_helpers import strip_deprecated_keys
 from selfdrive.controls.lib.alertmanager import set_offroad_alert
 from selfdrive.hardware import EON, TICI, HARDWARE
 from selfdrive.loggerd.config import get_available_percent
@@ -38,6 +38,10 @@ prev_offroad_states: Dict[str, Tuple[bool, Optional[str]]] = {}
 
 last_eon_fan_val = None
 
+params = Params()
+from common.dp_time import LAST_MODIFIED_THERMALD
+from common.dp_common import get_last_modified, param_get_if_updated
+dp_c2_fan_quiet_mode = params.get('dp_c2_fan_quiet_mode') == b'1'
 
 def read_tz(x):
   if x is None:
@@ -114,10 +118,13 @@ def handle_fan_eon(max_cpu_temp, bat_temp, fan_speed, ignition):
 
 
 def handle_fan_uno(max_cpu_temp, bat_temp, fan_speed, ignition):
-  new_speed = int(interp(max_cpu_temp, [40.0, 80.0], [0, 80]))
+  if dp_c2_fan_quiet_mode:
+    new_speed = int(interp(max_cpu_temp, [65.0, 80.0, 90.0], [0, 20, 60]))
+  else:
+    new_speed = int(interp(max_cpu_temp, [40.0, 80.0], [0, 80]))
 
   if not ignition:
-    new_speed = min(30, new_speed)
+    new_speed = min(10 if dp_c2_fan_quiet_mode else 30, new_speed)
 
   return new_speed
 
@@ -164,11 +171,30 @@ def thermald_thread():
   is_uno = False
   ui_running_prev = False
 
-  params = Params()
   power_monitor = PowerMonitoring()
   no_panda_cnt = 0
 
   thermal_config = HARDWARE.get_thermal_config()
+
+  # dp
+  dp_temp_monitor = True
+  dp_last_modified_temp_monitor = None
+
+  dp_debug = False
+  dp_last_modified_debug = None
+
+  dp_auto_shutdown = False
+  dp_last_modified_auto_shutdown = None
+
+  dp_auto_shutdown_in = 90
+  dp_last_modified_auto_shutdown_in = None
+
+  dp_allow_shutdown = False
+  dp_allow_shutdown_last = True
+
+  modified = None
+  last_modified = None
+  last_modified_check = None
 
   # CPR3 logging
   if EON:
@@ -185,6 +211,16 @@ def thermald_thread():
     cloudlog.event("CPR", data=cpr_data)
 
   while 1:
+
+    # dp - load temp monitor conf
+    last_modified_check, modified = get_last_modified(LAST_MODIFIED_THERMALD, last_modified_check, modified)
+    if last_modified != modified:
+      dp_temp_monitor, dp_last_modified_temp_monitor = param_get_if_updated("dp_temp_monitor", "bool", dp_temp_monitor, dp_last_modified_temp_monitor)
+      dp_auto_shutdown, dp_last_modified_auto_shutdown = param_get_if_updated("dp_auto_shutdown", "bool", dp_auto_shutdown, dp_last_modified_auto_shutdown)
+      dp_auto_shutdown_in, dp_last_modified_auto_shutdown_in = param_get_if_updated("dp_auto_shutdown_in", "int", dp_auto_shutdown_in, dp_last_modified_auto_shutdown_in)
+      dp_debug, dp_last_modified_debug = param_get_if_updated("dp_debug", "int", dp_debug, dp_last_modified_debug)
+      last_modified = modified
+
     pandaState = messaging.recv_sock(pandaState_sock, wait=True)
     msg = read_thermal(thermal_config)
 
@@ -283,48 +319,50 @@ def thermald_thread():
     else:
       thermal_status = ThermalStatus.green  # default to good condition
 
+    if not dp_temp_monitor and thermal_status in [ThermalStatus.yellow, ThermalStatus.red, ThermalStatus.danger]:
+      thermal_status = ThermalStatus.yellow
     # **** starting logic ****
 
     # Check for last update time and display alerts if needed
-    now = datetime.datetime.utcnow()
-
-    # show invalid date/time alert
-    startup_conditions["time_valid"] = (now.year > 2020) or (now.year == 2020 and now.month >= 10)
-    set_offroad_alert_if_changed("Offroad_InvalidTime", (not startup_conditions["time_valid"]))
-
-    # Show update prompt
-    try:
-      last_update = datetime.datetime.fromisoformat(params.get("LastUpdateTime", encoding='utf8'))
-    except (TypeError, ValueError):
-      last_update = now
-    dt = now - last_update
-
-    update_failed_count = params.get("UpdateFailedCount")
-    update_failed_count = 0 if update_failed_count is None else int(update_failed_count)
-    last_update_exception = params.get("LastUpdateException", encoding='utf8')
-
-    if update_failed_count > 15 and last_update_exception is not None:
-      if current_branch in ["release2", "dashcam"]:
-        extra_text = "Ensure the software is correctly installed"
-      else:
-        extra_text = last_update_exception
-
-      set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", False)
-      set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", False)
-      set_offroad_alert_if_changed("Offroad_UpdateFailed", True, extra_text=extra_text)
-    elif dt.days > DAYS_NO_CONNECTIVITY_MAX and update_failed_count > 1:
-      set_offroad_alert_if_changed("Offroad_UpdateFailed", False)
-      set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", False)
-      set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", True)
-    elif dt.days > DAYS_NO_CONNECTIVITY_PROMPT:
-      remaining_time = str(max(DAYS_NO_CONNECTIVITY_MAX - dt.days, 0))
-      set_offroad_alert_if_changed("Offroad_UpdateFailed", False)
-      set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", False)
-      set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", True, extra_text=f"{remaining_time} days.")
-    else:
-      set_offroad_alert_if_changed("Offroad_UpdateFailed", False)
-      set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", False)
-      set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", False)
+    # now = datetime.datetime.utcnow()
+    #
+    # # show invalid date/time alert
+    # startup_conditions["time_valid"] = (now.year > 2020) or (now.year == 2020 and now.month >= 10)
+    # set_offroad_alert_if_changed("Offroad_InvalidTime", (not startup_conditions["time_valid"]))
+    #
+    # # Show update prompt
+    # try:
+    #   last_update = datetime.datetime.fromisoformat(params.get("LastUpdateTime", encoding='utf8'))
+    # except (TypeError, ValueError):
+    #   last_update = now
+    # dt = now - last_update
+    #
+    # update_failed_count = params.get("UpdateFailedCount")
+    # update_failed_count = 0 if update_failed_count is None else int(update_failed_count)
+    # last_update_exception = params.get("LastUpdateException", encoding='utf8')
+    #
+    # if update_failed_count > 15 and last_update_exception is not None:
+    #   if current_branch in ["release2", "dashcam"]:
+    #     extra_text = "Ensure the software is correctly installed"
+    #   else:
+    #     extra_text = last_update_exception
+    #
+    #   set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", False)
+    #   set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", False)
+    #   set_offroad_alert_if_changed("Offroad_UpdateFailed", True, extra_text=extra_text)
+    # elif dt.days > DAYS_NO_CONNECTIVITY_MAX and update_failed_count > 1:
+    #   set_offroad_alert_if_changed("Offroad_UpdateFailed", False)
+    #   set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", False)
+    #   set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", True)
+    # elif dt.days > DAYS_NO_CONNECTIVITY_PROMPT:
+    #   remaining_time = str(max(DAYS_NO_CONNECTIVITY_MAX - dt.days, 0))
+    #   set_offroad_alert_if_changed("Offroad_UpdateFailed", False)
+    #   set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", False)
+    #   set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", True, extra_text=f"{remaining_time} days.")
+    # else:
+    #   set_offroad_alert_if_changed("Offroad_UpdateFailed", False)
+    #   set_offroad_alert_if_changed("Offroad_ConnectivityNeeded", False)
+    #   set_offroad_alert_if_changed("Offroad_ConnectivityNeededPrompt", False)
 
     startup_conditions["up_to_date"] = params.get("Offroad_ConnectivityNeeded") is None or params.get_bool("DisableUpdates")
     startup_conditions["not_uninstalling"] = not params.get_bool("DoUninstall")
@@ -347,6 +385,8 @@ def thermald_thread():
 
     # Handle offroad/onroad transition
     should_start = all(startup_conditions.values())
+    if dp_debug:
+      should_start = True
     if should_start != should_start_prev or (count == 0):
       params.put_bool("IsOffroad", not should_start)
       HARDWARE.set_power_save(not should_start)
@@ -382,6 +422,33 @@ def thermald_thread():
       time.sleep(10)
       HARDWARE.shutdown()
 
+    # dp
+    if pandaState is None and msg.deviceState.usbOnline:
+      # happen when boot up without panda connected
+      dp_allow_shutdown = False
+    elif pandaState is not None and msg.deviceState.usbOnline and pandaState.pandaState.pandaType == log.PandaState.PandaType.unknown:
+      # happen when panda was there and gone
+      dp_allow_shutdown = False
+    else:
+      dp_allow_shutdown = True
+
+    # if allow shutdown status change, we reset off_ts
+    if dp_allow_shutdown != dp_allow_shutdown_last and off_ts is not None:
+      off_ts = sec_since_boot()
+      dp_allow_shutdown_last = dp_allow_shutdown
+
+    if dp_allow_shutdown and off_ts is not None and dp_auto_shutdown and sec_since_boot() - off_ts >= dp_auto_shutdown_in * 60:
+      msg.deviceState.chargingDisabled = True
+      shutdown = False
+      if pandaState is not None:
+        if pandaState.pandaState.usbPowerMode in [log.PandaState.UsbPowerMode.client, log.PandaState.UsbPowerMode.none]:
+          shutdown = True
+      else:
+        shutdown = True
+      if shutdown:
+        time.sleep(10)
+        HARDWARE.shutdown()
+
     # If UI has crashed, set the brightness to reasonable non-zero value
     manager_state = messaging.recv_one_or_none(managerState_sock)
     if manager_state is not None:
@@ -404,16 +471,16 @@ def thermald_thread():
     startup_conditions_prev = startup_conditions.copy()
 
     # report to server once every 10 minutes
-    if (count % int(600. / DT_TRML)) == 0:
-      if EON and started_ts is None and msg.deviceState.memoryUsagePercent > 40:
-        cloudlog.event("High offroad memory usage", mem=msg.deviceState.memoryUsagePercent)
-
-      location = messaging.recv_sock(location_sock)
-      cloudlog.event("STATUS_PACKET",
-                     count=count,
-                     pandaState=(strip_deprecated_keys(pandaState.to_dict()) if pandaState else None),
-                     location=(strip_deprecated_keys(location.gpsLocationExternal.to_dict()) if location else None),
-                     deviceState=strip_deprecated_keys(msg.to_dict()))
+    # if (count % int(600. / DT_TRML)) == 0:
+    #   if EON and started_ts is None and msg.deviceState.memoryUsagePercent > 40:
+    #     cloudlog.event("High offroad memory usage", mem=msg.deviceState.memoryUsagePercent)
+    #
+    #   location = messaging.recv_sock(location_sock)
+    #   cloudlog.event("STATUS_PACKET",
+    #                  count=count,
+    #                  pandaState=(strip_deprecated_keys(pandaState.to_dict()) if pandaState else None),
+    #                  location=(strip_deprecated_keys(location.gpsLocationExternal.to_dict()) if location else None),
+    #                  deviceState=strip_deprecated_keys(msg.to_dict()))
 
     count += 1
 
