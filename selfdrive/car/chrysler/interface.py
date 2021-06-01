@@ -3,7 +3,7 @@ from cereal import car
 from selfdrive.car.chrysler.values import CAR, Ecu, ECU_FINGERPRINT, FINGERPRINTS
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint, is_ecu_disconnected
 from selfdrive.car.interfaces import CarInterfaceBase
-
+from common.dp_common import common_interface_atl, common_interface_get_params_lqr
 
 class CarInterface(CarInterfaceBase):
   @staticmethod
@@ -15,6 +15,7 @@ class CarInterface(CarInterfaceBase):
     ret = CarInterfaceBase.get_std_params(candidate, fingerprint, has_relay)
     ret.carName = "chrysler"
     ret.safetyModel = car.CarParams.SafetyModel.chrysler
+    ret.lateralTuning.init('pid')
 
     # Chrysler port is a community feature, since we don't own one to test
     ret.communityFeature = True
@@ -52,6 +53,9 @@ class CarInterface(CarInterfaceBase):
     ret.enableCamera = is_ecu_disconnected(fingerprint[0], FINGERPRINTS, ECU_FINGERPRINT, candidate, Ecu.fwdCamera) or has_relay
     ret.enableBsm = 720 in fingerprint[0]
 
+    # dp
+    ret = common_interface_get_params_lqr(ret)
+
     return ret
 
   # returns a car.CarState
@@ -61,6 +65,9 @@ class CarInterface(CarInterfaceBase):
     self.cp_cam.update_strings(can_strings)
 
     ret = self.CS.update(self.cp, self.cp_cam)
+    # dp
+    self.dragonconf = dragonconf
+    ret.cruiseState.enabled = common_interface_atl(ret, dragonconf.dpAtl)
 
     ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
 
@@ -88,6 +95,6 @@ class CarInterface(CarInterfaceBase):
     if (self.CS.frame == -1):
       return []  # if we haven't seen a frame 220, then do not update.
 
-    can_sends = self.CC.update(c.enabled, self.CS, c.actuators, c.cruiseControl.cancel, c.hudControl.visualAlert)
+    can_sends = self.CC.update(c.enabled, self.CS, c.actuators, c.cruiseControl.cancel, c.hudControl.visualAlert, self.dragonconf)
 
     return can_sends

@@ -3,6 +3,7 @@ from selfdrive.swaglog import cloudlog
 from selfdrive.car.volkswagen.values import CAR, BUTTON_STATES, TransmissionType, GearShifter
 from selfdrive.car import STD_CARGO_KG, scale_rot_inertia, scale_tire_stiffness, gen_empty_fingerprint
 from selfdrive.car.interfaces import CarInterfaceBase
+from common.dp_common import common_interface_atl, common_interface_get_params_lqr
 
 EventName = car.CarEvent.EventName
 
@@ -13,6 +14,11 @@ class CarInterface(CarInterfaceBase):
 
     self.displayMetricUnitsPrev = None
     self.buttonStatesPrev = BUTTON_STATES.copy()
+
+    # timebomb_counter mod
+    self.timebomb_counter = 0
+    self.wheel_grabbed = False
+    self.timebomb_bypass_counter = 0
 
   @staticmethod
   def compute_gb(accel, speed):
@@ -120,6 +126,8 @@ class CarInterface(CarInterfaceBase):
     # mass and CG position, so all cars will have approximately similar dyn behaviors
     ret.tireStiffnessFront, ret.tireStiffnessRear = scale_tire_stiffness(ret.mass, ret.wheelbase, ret.centerToFront,
                                                                          tire_stiffness_factor=tire_stiffness_factor)
+    # dp
+    ret = common_interface_get_params_lqr(ret)
 
     return ret
 
@@ -134,6 +142,9 @@ class CarInterface(CarInterfaceBase):
     self.cp_cam.update_strings(can_strings)
 
     ret = self.CS.update(self.cp, self.cp_cam, self.CP.transmissionType)
+    # dp
+    self.dragonconf = dragonconf
+    ret.cruiseState.enabled = common_interface_atl(ret, dragonconf.dpAtl)
     ret.canValid = self.cp.can_valid and self.cp_cam.can_valid
     ret.steeringRateLimited = self.CC.steer_rate_limited if self.CC is not None else False
 
@@ -176,6 +187,7 @@ class CarInterface(CarInterfaceBase):
                    c.hudControl.leftLaneVisible,
                    c.hudControl.rightLaneVisible,
                    c.hudControl.leftLaneDepart,
-                   c.hudControl.rightLaneDepart)
+                   c.hudControl.rightLaneDepart,
+                               self.dragonconf)
     self.frame += 1
     return can_sends
