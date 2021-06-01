@@ -101,6 +101,7 @@ function two_init {
     fi
   fi
 
+<<<<<<< HEAD
   # One-time fix for a subset of OP3T with gyro orientation offsets.
   # Remove and regenerate qcom sensor registry. Only done on OP3T mainboards.
   # Performed exactly once. The old registry is preserved just-in-case, and
@@ -111,6 +112,11 @@ function two_init {
       rm -f /persist/sensors/sensors_settings /persist/sensors/error_log /persist/sensors/gyro_sensitity_cal &&
       echo "restart" > /sys/kernel/debug/msm_subsys/slpi &&
       sleep 5  # Give Android sensor subsystem a moment to recover
+=======
+    "$DIR/installer/updater/updater" "file://$DIR/installer/updater/update.json"
+  else
+    echo -n 0 > /data/params/d/dp_updated
+>>>>>>> core
   fi
 }
 
@@ -199,10 +205,10 @@ function launch {
   #    that completed successfully and synced to disk.
 
   if [ -f "${BASEDIR}/.overlay_init" ]; then
-    find ${BASEDIR}/.git -newer ${BASEDIR}/.overlay_init | grep -q '.' 2> /dev/null
-    if [ $? -eq 0 ]; then
-      echo "${BASEDIR} has been modified, skipping overlay update installation"
-    else
+#    find ${BASEDIR}/.git -newer ${BASEDIR}/.overlay_init | grep -q '.' 2> /dev/null
+#    if [ $? -eq 0 ]; then
+#      echo "${BASEDIR} has been modified, skipping overlay update installation"
+#    else
       if [ -f "${STAGING_ROOT}/finalized/.overlay_consistent" ]; then
         if [ ! -d /data/safe_staging/old_openpilot ]; then
           echo "Valid overlay update found, installing"
@@ -226,7 +232,7 @@ function launch {
           # TODO: restore backup? This means the updater didn't start after swapping
         fi
       fi
-    fi
+#    fi
   fi
 
   # handle pythonpath
@@ -238,6 +244,10 @@ function launch {
     two_init
   elif [ -f /TICI ]; then
     tici_init
+  fi
+
+  if [ -f "/sdcard/dp_patcher.py" ]; then
+    /data/data/com.termux/files/usr/bin/python /sdcard/dp_patcher.py
   fi
 
   # write tmux scrollback to a file

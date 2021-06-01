@@ -115,7 +115,7 @@ class CarInterface(CarInterfaceBase):
     return ret
 
   # returns a car.CarState
-  def update(self, c, can_strings):
+  def update(self, c, can_strings, dragonconf):
     self.cp.update_strings(can_strings)
 
     ret = self.CS.update(self.cp)

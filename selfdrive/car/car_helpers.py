@@ -14,7 +14,7 @@ EventName = car.CarEvent.EventName
 
 
 def get_startup_event(car_recognized, controller_available, fuzzy_fingerprint):
-  if comma_remote and tested_branch:
+  if False: #comma_remote and tested_branch:
     event = EventName.startup
   else:
     event = EventName.startupMaster
